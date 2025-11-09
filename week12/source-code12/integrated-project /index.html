@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <link rel="stylesheet" href="style.css">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Prompt:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <title>Study Plans</title>
+</head>
+<body>
+  <nav class="glass-navbar">
+    <div class="nav-logo">
+      <img src="./images/SIT LOGO White.png" alt="SITlogo">
+      <span>Study Plan Declaration and Course Reservation</span>
+    </div>
+    <ul class="nav-links">
+      <li><a href="#">Home</a></li>
+      <li><a href="#">Study Plans</a></li>
+    </ul>
+  </nav>
+  
+  <main>
+    <h2>Available Study Plans</h2>
+    <table id="planTable">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Study Code</th>
+          <th>English Name</th>
+          <th>Thai Name</th>
+        </tr>
+      </thead>
+      <tbody id="planBody">
+        <tr><td colspan="4" class="no-data">Loading data...</td></tr>
+      </tbody>
+    </table>
+  </main>
+
+  <!-- Error Dialog -->
+  <div class="ecors-dialog" id="errorDialog">
+    <div class="ecors-dialog-message">
+      There is a problem. Please try again later.
+    </div>
+  </div>
+
+  <script src="app.js">
+  </script>
+</body>
+</html>

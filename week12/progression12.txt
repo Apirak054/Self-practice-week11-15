@@ -1,0 +1,158 @@
+// ===============================
+// ตัวอย่างการทำงานแบบ Synchronous (ทำงานตามลำดับทีละบรรทัด)
+// ===============================
+console.log("starting...")
+console.log("working...")
+console.log("ending...")
+
+// ผลลัพธ์ที่ได้ (เรียงตามลำดับเลย):
+// starting...
+// working...
+// ending...
+
+// ===============================
+// ตัวอย่างการทำงานแบบ Asynchronous (ทำงานไม่เรียงตามลำดับ)
+// ===============================
+console.log("starting...")
+
+// setTimeout คือฟังก์ชัน Asynchronous (ไม่รอ 5 วิถึงจะทำงาน)
+setTimeout(() => console.log("working...5"), 5000)
+
+console.log("ending...")
+
+// ผลลัพธ์จะออกมาแบบนี้:
+// starting...
+// ending...
+// (รอ 5 วินาที)
+// working...5
+
+console.log("=====================================")
+
+// ===============================
+// การสร้าง Promise เพื่อจำลองงานที่ใช้เวลา (เช่น ดึงข้อมูลจาก server)
+// ===============================
+async function doSomething(hasProblem) {
+  // สร้าง Promise ที่จะ resolve หรือ reject หลังจาก 5 วินาที
+  return new Promise((resolve, reject) => {
+    setTimeout(
+      () => (hasProblem ? reject("Fail Working") : resolve("Fully Complete")),
+      5000
+    )
+  })
+}
+
+// เริ่มต้นทำงานแบบ async
+console.log("starting...")
+
+// เรียกใช้ฟังก์ชันที่ return Promise (ยังไม่ await)
+// ตอนนี้ workingStatus ยังเป็น Promise (ยังไม่เสร็จ)
+const workingStatus = doSomething(false)
+console.log(workingStatus) // แสดงสถานะ Promise (pending)
+console.log("ending...")
+
+// ตัวนี้จะได้ผลลัพธ์แบบ:
+// starting...
+// Promise { <pending> }
+// ending...
+// (รอ 5 วิ แล้วถึงจะ resolve หรือ reject)
+// แต่จะไม่เห็นค่า resolve เพราะเราไม่ได้รอ
+
+console.log("=====================================")
+
+// ===============================
+// วิธีจัดการ Promise แบบที่ 1: ใช้ .then() และ .catch()
+// ===============================
+console.log("starting...")
+
+// ถ้า doSomething(true) => มันจะ reject หลัง 5 วิ
+doSomething(true)
+  .then((workingStatus) => {
+    // ถ้า resolve จะเข้ามาทำในนี้
+    console.log(workingStatus)
+    console.log("ending...")
+  })
+  .catch((errorMessage) => {
+    // ถ้า reject จะเข้ามาทำในนี้
+    console.log(errorMessage)
+  })
+
+// โค้ดจะไม่รอ doSomething จบก่อนถึงจะทำบรรทัดต่อไป
+console.log("=====================================")
+
+// ===============================
+// วิธีจัดการ Promise แบบที่ 2: ใช้ async / await
+// ===============================
+console.log("starting... ")
+
+async function runworking() {
+  try {
+    // ใช้ await เพื่อรอให้ Promise ใน doSomething ทำงานเสร็จ
+    const workingStatus = await doSomething(true)
+    console.log(workingStatus)
+    console.log("ending...")
+  } catch (error) {
+    // ถ้ามี error (reject) จะเข้ามาทำใน catch
+    console.log(error)
+  }
+}
+
+// ต้องเรียกฟังก์ชันนี้ถึงจะเริ่มทำงาน
+runworking()
+
+
+
+==============================================================
+
+//////=========integrated-project==================//////////
+
+==============================================================
+
+// ===============================
+// ส่วนแสดงผลข้อมูลบนหน้าเว็บ (ตาราง)
+// ===============================
+function renderPlanTable(plans) {
+  const tableBody = document.getElementById('planBody'); // tbody ของตารางที่จะแสดงข้อมูล
+  if (!tableBody) return; // ถ้าไม่มี element นี้ ก็ไม่ทำอะไรต่อ
+
+  // กรณีไม่มีข้อมูลเลย
+  if (!plans || plans.length === 0) {
+    tableBody.innerHTML = `
+      <tr>
+        <td colspan="4" class="no-data">No study plans found.</td>
+      </tr>`;
+    return;
+  }
+
+  // ถ้ามีข้อมูล ให้ map แต่ละ plan ออกมาเป็นแถวในตาราง
+  tableBody.innerHTML = plans
+    .map(plan => `
+      <tr class="ecors-row">
+        <td class="ecors-id">${plan.id}</td>
+        <td class="ecors-studyCode">${plan.planCode}</td>
+        <td class="ecors-nameEng">${plan.nameEng}</td>
+        <td class="ecors-nameTh">${plan.nameTh}</td>
+      </tr>
+    `)
+    .join(''); // รวม string ทั้งหมดเป็นตารางเดียว
+}
+
+
+// ===============================
+// ฟังก์ชันแสดง error dialog (เวลา fetch ล้มเหลว)
+// ===============================
+function showErrorModal() {
+  const dialog = document.getElementById('errorDialog');
+  
+  // ถ้ามี dialog element ในหน้าเว็บ => แสดง popup error
+  if (dialog) {
+    dialog.classList.add('active');
+  } 
+  // ถ้าไม่มี element นั้น => ใช้ alert ธรรมดาแทน
+  else {
+    alert('There is a problem. Please try again later.');
+  }
+}
+
+----------------------------------------------------------------------------------------------------------
+สิ่งที่ฝึกฝนในอาทิตย์นี้คือ นำโค้ดที่เรียนรู้ในห้องและโค้ดที่ทำในintegrated project มาแบ่งหัวข้อ + ใส่คำอธิบายละเอียด เพื่อทบทวนและอ่านซ้ำได้ง่าย  
+**มีการใช้ ai เพื่ออธิบายแต่ละหัวข้อเพื่อให้เข้าใจมากขึ้น 
