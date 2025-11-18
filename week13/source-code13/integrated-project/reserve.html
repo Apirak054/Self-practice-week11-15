@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manage Declaration - ITB-ECORS</title>
+    <link rel="stylesheet" href="./css/index.css">
+    <style>
+      
+        body { font-family: sans-serif; padding: 20px; }
+        header { display: flex; justify-content: space-between; align-items: center; }
+        #declare-section { display: none; }
+        #ecors-dialog { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); border: 1px solid black; background: white; padding: 20px; z-index: 100; }
+        #dialog-backdrop { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 99; }
+        a:hover{
+            scale: 1.2;
+            transition: 0.8;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <a href="index.html" style="color: white; text-decoration: none;"><span>Study Plan Declaration and Course Reservation</span></a>
+        <div>
+            <span id="ecors-fullname">Welcome...</span>
+            <button id="ecors-button-signout">Sign Out</button>
+        </div>
+    </header>
+
+    <hr>
+
+    <h2>Declaration Status</h2>
+    <div id="ecors-declared-plan">Loading...</div>
+
+    <div id="declare-section">
+        <h3>Declare Your Major</h3>
+        <label for="ecors-dropdown-plan">Select Major:</label>
+        <select id="ecors-dropdown-plan">
+            </select>
+        
+        <button id="ecors-button-declare" disabled>Declare</button>
+    </div>
+
+    <div id="dialog-backdrop"></div>
+    <div id="ecors-dialog">
+        <p id="ecors-dialog-message"></p>
+        <button id="ecors-button-dialog">Ok</button>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/keycloak-js@24.0.0/dist/keycloak.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+
+    <script type="module" src="reserve.js"></script>
+</body>
+</html>

@@ -1,0 +1,485 @@
+///------- app.js -------///
+----------------------------------------------------------------------------------------------------------
+//--- นำเข้า API Functions จาก backend ---//
+import {
+  loadQuotes,
+  deleteQuote,
+  addQuote,
+  editQuote,
+} from "./quoteManagement.js"
+
+	-	import ... from "./quoteManagement.js" : นำเข้าฟังก์ชันที่ใช้ติดต่อกับ backend
+	-	loadQuotes()  : โหลดรายการ quote ทั้งหมด
+	-	deleteQuote() : ลบ quote
+	-	addQuote()    : เพิ่ม quote ใหม่
+	-	editQuote()   : แก้ไข quote เดิม
+
+//--- โหลด quote ทั้งหมดเมื่อ DOM พร้อม ---//
+document.addEventListener("DOMContentLoaded", async () => {
+  const quotes = await loadQuotes()
+  console.log(quotes)
+  const quoteListEle = document.getElementById("quoteList")
+  quotes.forEach((quote) => {
+    const quoteCardEle = newQuoteCard(quote)
+    quoteListEle.appendChild(quoteCardEle)
+  })
+})
+
+	-	DOMContentLoaded : รอให้ DOM โหลดเสร็จก่อนค่อยทำงาน
+	-	loadQuotes() : เรียก API เพื่อเอา quote ทั้งหมดมาแสดง
+	-	quoteListEle.appendChild() : แสดง quote ทีละอันบน DOM 
+
+//--- สร้าง card ของ quote ใหม่ ---//
+function newQuoteCard(quote) {
+  const divEle = document.createElement("div")
+  divEle.className = "quote-card"
+  divEle.dataset.id = quote.id
+
+  const pQuote = document.createElement("p")
+  pQuote.textContent = quote.content
+  divEle.appendChild(pQuote)
+
+  const pAuthor = document.createElement("p")
+  pAuthor.className = "author"
+  pAuthor.textContent = quote.author
+  divEle.appendChild(pAuthor)
+
+  const divActionsEle = document.createElement("div")
+  divActionsEle.className = "actions"
+
+  const editButtonEle = document.createElement("button")
+  editButtonEle.className = "edit"
+  editButtonEle.dataset.id = quote.id
+  editButtonEle.textContent = "Edit"
+  editButtonEle.addEventListener("click", handleEdit)
+  divActionsEle.appendChild(editButtonEle)
+
+  const deleteButtonEle = document.createElement("button")
+  deleteButtonEle.className = "delete"
+  deleteButtonEle.dataset.id = quote.id
+  deleteButtonEle.textContent = "Delete"
+  deleteButtonEle.addEventListener("click", handleDelete)
+  divActionsEle.appendChild(deleteButtonEle)
+
+  divEle.appendChild(divActionsEle)
+  return divEle
+}
+
+	-	createElement() : สร้าง element ใหม่
+	-	dataset.id : เก็บค่า id ไว้ใน data attribute เช่น data-id="3"
+	-	textContent : ใส่ข้อความภายใน <p>
+	-	appendChild() : เพิ่ม element เข้าไปใน parent element
+	-	addEventListener() : ผูก event ให้ปุ่ม Edit/Delete
+
+//--- Handle การแก้ไข quote ---//
+function handleEdit(e) {
+  const editId = e.target.dataset.id
+  const editQuoteDivEle = document.querySelector(`div[data-id="${editId}"]`)
+  const formEle = document.getElementById("quoteForm")
+  formEle.quoteId.value = editId
+  formEle.content.value = editQuoteDivEle.children[0].textContent
+  formEle.author.value = editQuoteDivEle.children[1].textContent
+}
+
+	-	e.target : element ที่กด (button)
+	-	e.target.dataset.id : ดึงค่า id ที่เก็บใน data-id
+	-	querySelector(`div[data-id="id"]`) : เลือก quote card ที่ต้องการแก้ไข
+	-	formEle.quoteId.value : ซ่อน ID quote ใน hidden input เพื่อใช้ตอน submit edit
+
+//--- Handle การลบ quote ---//
+async function handleDelete(e) {
+  const removeId = e.target.dataset.id
+  const ans = confirm(`Do you want to delete quote: ${removeId} `)
+  if (ans) {
+    try {
+      const deletedId = await deleteQuote(removeId)
+      const removeQuoteDivEle = document.querySelector(
+        `div[data-id="${deletedId}"]`
+      )
+      const quoteListEle = document.querySelector("#quoteList")
+      quoteListEle.removeChild(removeQuoteDivEle)
+    } catch (e) {
+      alert(`App: ${e.message}`)
+    }
+  }
+}
+
+	-	confirm() : popup ถามยืนยันก่อนลบ
+	-	deleteQuote() : เรียก backend ลบรายการ
+	-	removeChild() : ลบจาก DOM ถ้าลบสำเร็จ
+
+//--- จัดการ submit form เพิ่ม/แก้ไข quote ---//
+const formEle = document.getElementById("quoteForm")
+formEle.addEventListener("submit", handleAddEdit)
+
+async function handleAddEdit(event) {
+  event.preventDefault()
+  const quoteId = formEle.quoteId.value
+  const newContent = formEle.content.value
+  const newAuthor = formEle.author.value
+
+  if (quoteId) {
+    // EDIT
+    try {
+      const updateQuote = await editQuote({
+        id: quoteId,
+        content: newContent,
+        author: newAuthor,
+      })
+      const updateQuoteDivEle = document.querySelector(
+        `div[data-id="${updateQuote.id}"]`
+      )
+      updateQuoteDivEle.children[0].textContent = updateQuote.content
+      updateQuoteDivEle.children[1].textContent = updateQuote.author
+    } catch (e) {
+      console.log(`App [Edit]: ${e.message}`)
+    }
+  } else {
+    // ADD
+    try {
+      const newQuote = await addQuote({
+        content: newContent,
+        author: newAuthor,
+      })
+      const newQuoteDivEle = newQuoteCard(newQuote)
+      const quoteListEle = document.getElementById("quoteList")
+      quoteListEle.appendChild(newQuoteDivEle)
+    } catch (e) {
+      alert(`App [Add]: ${e.message}`)
+    }
+  }
+
+  formEle.quoteId.value = ""
+  formEle.content.value = ""
+  formEle.author.value = ""
+}
+
+	-	event.preventDefault() : ไม่ให้รีเฟรชหน้าเว็บ
+	-	แยกกรณี add/edit ด้วย `quoteId`
+	-	addQuote(): เพิ่ม quote ใหม่
+	-	editQuote(): แก้ไข quote เดิม
+	-	reset value form เพื่อเคลียร์
+
+
+///------- quoteManagement.js -------///
+----------------------------------------------------------------------------------------------------------
+//--- นำเข้า Utility Functions สำหรับเรียก API ---//
+import { getItems, deleteItem, addItem, editItem } from "./myLib/fetchUtils.js"
+const quoteURL = `${import.meta.env.VITE_APP_URL}/quotes`
+
+	-	import ... from "./myLib/fetchUtils.js" : ใช้ฟังก์ชันพื้นฐาน CRUD จากไฟล์ fetchUtils
+	-	quoteURL : URL endpoint ของ API ถูกเรียกใช้ผ่าน Vite environment variable (`import.meta.env`)
+	-	VITE_APP_URL : base URL ของ backend เช่น http://localhost:3000
+
+//--- GET Quotes (READ) ---//
+async function loadQuotes() {
+  try {
+    const quotes = await getItems(quoteURL)
+    console.log(quotes)
+    return quotes
+  } catch (error) {
+    alert(`Quote: ${error}`)
+  }
+}
+
+	-	loadQuotes(): ดึงรายการ quotes ทั้งหมดมาจาก API
+	-	getItems(quoteURL): ทำ HTTP GET ที่ใช้งานร่วมกับ fetch
+	-	return quotes: ส่งผลลัพธ์กลับไปใช้แสดงบนหน้าจอ
+
+//--- ADD Quote (CREATE) ---//
+async function addQuote(item) {
+  try {
+    const addedQuote = await addItem(quoteURL, item)
+    return addedQuote
+  } catch (error) {
+    alert(`Quote: ${error}`)
+  }
+}
+
+	-	addQuote(item): เพิ่ม quote ใหม่ตามข้อมูล item
+	-	addItem(url, item): ส่ง POST request ไปที่ /quotes
+	-	item: object ที่ส่งไป เช่น {content: "...", author: "..."}
+
+//--- EDIT Quote (UPDATE) ---//
+async function editQuote(item) {
+  try {
+    const editedQuote = await editItem(quoteURL, item)
+    return editedQuote
+  } catch (error) {
+    alert(`Quote: ${error}`)
+  }
+}
+
+	-	editQuote(item): ข้อมูล item ต้องมี id เพื่อระบุ quote ที่แก้ไข
+	-	editItem(url, item): ส่ง PUT/PATCH request เพื่ออัปเดตข้อมูล
+
+//--- DELETE Quote (DELETE) ---//
+async function deleteQuote(id) {
+  try {
+    const removeId = await deleteItem(quoteURL, id)
+    return removeId
+  } catch (error) {
+    alert(`Quote: ${error}`)
+  }
+}
+
+	-	deleteQuote(id): รับ id เพื่อระบุ quote ที่จะลบ
+	-	deleteItem(url, id): ส่ง HTTP DELETE request ไปที่ /quotes/:id
+	-	return removeId: ส่งกลับ id ที่ถูกลบเพื่อใช้งานต่อ (ลบจาก DOM)
+
+
+//--- Export ฟังก์ชันทั้งหมดให้ไฟล์อื่นใช้ ---//
+export { loadQuotes, deleteQuote, addQuote, editQuote }
+
+	-	สามารถ import ในหน้าอื่นที่ต้องใช้ CRUD เช่น UI หรือ Controller
+
+
+----------------------------------------------------------------------------------------------------------
+///------- reserve.js -------///
+----------------------------------------------------------------------------------------------------------
+//--- 1. CONFIGURE API Base URL ---//
+const isLocal_reserve = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+const API_HOST_reserve = isLocal_reserve ? 'http://localhost:3000' : '';
+const apiBaseUrl = `${API_HOST_reserve}/intproj25/pl1/itb-ecors/api/v1`;
+
+	- ตรวจสอบว่าเป็น localhost หรือ production เพื่อเลือก API URL
+	- ใช้ template literals ประกอบ path ใช้ซ้ำง่ายขึ้น
+
+//--- 2. GET DOM Elements ---//
+const declaredPlanEl = document.getElementById("ecors-declared-plan");
+const declareSectionEl = document.getElementById("declare-section");
+const dropdown = document.getElementById("ecors-dropdown-plan");
+const declareBtn = document.getElementById("ecors-button-declare");
+const fullNameEl = document.getElementById("ecors-fullname");
+const signOutBtn = document.getElementById("ecors-button-signout");
+
+let studentId = null;
+let authToken = null;
+
+	- ใช้ getElementById เข้าถึง element ที่ถูกกำหนด id ใน DOM
+	- เพิ่ม state เก็บ studentId และ token ไว้ใช้ตอน call API
+
+//--- 3. INIT KEYCLOAK ---//
+const keycloakConfig = {
+  url: "https://bscit.sit.kmutt.ac.th/intproj25/ft/keycloak/",
+  realm: "itb-ecors",
+  clientId: "itb-ecors-pl1"
+};
+
+const keycloak = new Keycloak(keycloakConfig);
+
+if (declaredPlanEl) {
+  keycloak.init({ onLoad: 'login-required', checkLoginIframe: false })
+    .then(authenticated => {
+      if (authenticated) {
+        setupUser(keycloak);
+        fetchDeclarationStatus();
+      }
+    })
+    .catch(() => {
+      console.error('Keycloak initialization failed');
+      declaredPlanEl.textContent = "Authentication failed.";
+    });
+}
+
+	- Keycloak ใช้จัดการ login / token
+	- init() ปรับรัน login-required อัตโนมัติ
+	- ถ้า login สำเร็จ → setupUser() + fetchDeclarationStatus()
+
+//--- 4. SETUP LOGGED-IN USER ---//
+function setupUser(kc) {
+  studentId = kc.tokenParsed.preferred_username;
+  authToken = kc.token;
+  fullNameEl.textContent = `${kc.tokenParsed.name}`;
+
+  signOutBtn.addEventListener('click', () => {
+    studentId = null;
+    authToken = null;
+    fullNameEl.textContent = '';
+    if (declareSectionEl) declareSectionEl.style.display = 'none';
+    if (declaredPlanEl) declaredPlanEl.textContent = 'You have been logged out.';
+  });
+
+  dropdown.addEventListener("change", () => {
+    declareBtn.disabled = dropdown.value === "";
+  });
+
+  declareBtn.addEventListener('click', handleDeclare);
+}
+
+	- ดึงข้อมูลจาก tokenParsed เช่น username, name
+	- ผูก event: sign out / enable declare button เมื่อเลือก dropdown
+	- ฟังก์ชัน central: handleDeclare()
+
+//--- 5. FETCH Declaration Status (GET /students/{id}/declared-plan) ---//
+async function fetchDeclarationStatus() {
+  if (!studentId) return;
+
+  declaredPlanEl.textContent = "Loading status...";
+
+  try {
+    const res = await fetch(`${apiBaseUrl}/students/${studentId}/declared-plan`, {
+      headers: { 'Authorization': `Bearer ${authToken}` }
+    });
+
+    if (res.status === 200) { 
+      const data = await res.json();
+      renderDeclared(data);
+    } else if (res.status === 404) { 
+      renderNotDeclared();
+    } else {
+      throw new Error(`HTTP ${res.status}`);
+    }
+  } catch (err) {
+    console.error(err);
+    showDialog_reserve("Could not load declaration status. Please refresh.");
+  }
+}
+
+	- ถ้าบันทึกแล้ว → REST API จะส่ง 200 พร้อม JSON
+	- ถ้ายังไม่เคย declare → API ส่ง 404 → renderNotDeclared()
+	- ใช้ Bearer Token สำหรับ authorization
+
+//--- 6. RENDER STATUS (DECLARED / NOT DECLARED) ---//
+function renderDeclared(data) {
+  const date = new Date(data.updatedAt); 
+  const formattedDate = date.toLocaleString('en-GB', {
+    day: '2-digit', month: '2-digit', year: 'numeric',
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+    timeZoneName: 'short'
+  }).replace(',', '');
+
+  declaredPlanEl.textContent =
+    `Declaration Status: Declared ${data.planCode} - ${data.planNameEng} plan on ${formattedDate}`;
+
+  if (declareSectionEl) declareSectionEl.style.display = 'none';
+}
+
+function renderNotDeclared() {
+  declaredPlanEl.textContent = "Declaration Status: Not Declared";
+  if (declareSectionEl) declareSectionEl.style.display = 'block';
+  loadStudyPlansForDropdown();
+}
+
+	- format date ให้อ่านง่าย
+	- toggle declare section ตามสถานะ
+	- call loadStudyPlansForDropdown() เมื่อยังไม่ declare
+
+//--- 7. LOAD STUDY PLANS LIST (Dropdown Options) ---//
+async function loadStudyPlansForDropdown() {
+  try {
+    const response = await fetch(`${apiBaseUrl}/study-plans`, {
+      headers: { 'Authorization': `Bearer ${authToken}` }
+    });
+    if (!response.ok) throw new Error("Failed to fetch study plans");
+
+    const plans = await response.json();
+    dropdown.innerHTML = '<option value="">-- Select Major --</option>';
+
+    plans.forEach(plan => {
+      const option = document.createElement("option");
+      option.value = plan.id;
+      option.textContent = `${plan.planCode} - ${plan.nameEng}`;
+      dropdown.appendChild(option);
+    });
+  } catch (error) {
+    console.error("Error loading study plans:", error);
+    showDialog_reserve("Cannot load study plans. Please try again later.");
+  }
+}
+
+	- โหลดรายการ major ทั้งหมดจาก API
+	- loop render `<option>` ลง dropdown
+	- API ตอบ JSON ของ study plans (มี planCode, nameEng)
+
+//--- 8. HANDLE DECLARE ACTION (POST) ---//
+async function handleDeclare() {
+  const selectedPlanId = dropdown.value;
+  if (!selectedPlanId) return;
+
+  declareBtn.disabled = true;
+
+  try {
+    const res = await fetch(`${apiBaseUrl}/students/${studentId}/declared-plan`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken}`
+      },
+      body: JSON.stringify({ planId: parseInt(selectedPlanId) })
+    });
+
+    if (res.status === 201) {
+      const data = await res.json();
+      renderDeclared(data);
+    } else if (res.status === 409) {
+      showDialog_reserve("You may have declared study plan already. Please check again.", "conflict");
+    } else {
+      throw new Error(`HTTP ${res.status}`);
+    }
+  } catch (err) {
+    console.error(err);
+    showDialog_reserve("There is a problem. Please try again later.");
+    declareBtn.disabled = false;
+  }
+}
+
+	- ใช้ POST /students/{id}/declared-plan
+	- body: { planId: ... }
+	- 201 = success / 409 = conflict (already declared)
+
+//--- 9. Modal Dialog for Error/Special Cases ---//
+function showDialog_reserve(message, type = 'error') {
+  document.querySelectorAll('dialog.ecors-dialog').forEach(d => d.remove());
+
+  const dialog = document.createElement('dialog');
+  dialog.classList.add('ecors-dialog');
+  dialog.innerHTML = `
+    <div id="ecors-dialog-message" class="ecors-dialog-message">${message}</div>
+    <button id="ecors-button-dialog">Ok</button>
+  `;
+  dialog.addEventListener('cancel', e => e.preventDefault());
+  const okButton = dialog.querySelector('#ecors-button-dialog');
+
+  const closeHandler = () => {
+    dialog.close();
+    document.body.removeChild(dialog);
+
+    if (type === 'conflict') {
+      fetchDeclarationStatus();
+    }
+  };
+
+  okButton.addEventListener('click', closeHandler);
+
+  dialog.addEventListener('keydown', e => {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      closeHandler();
+    }
+  });
+
+  document.body.appendChild(dialog);
+  dialog.showModal();
+}
+
+	- ใช้ `<dialog>` element (HTML5) เป็น modal
+	- ผูก event click และ ESC เพื่อปิด dialog
+	- รองรับ case conflict → refresh status อัตโนมัติหลัง dialog ปิด
+----------------------------------------------------------------------------------------------------------
+สิ่งที่ฝึกฝนในอาทิตย์นี้คือ :
+- ใช้ DOM API เช่น createElement(), appendChild(), querySelector()
+- ใช้ dataset เพื่อเก็บข้อมูล id ของ quote
+- ใช้ event handling (click, submit) กับฟอร์มและปุ่ม
+- ใช้ async/await เชื่อม backend กับ frontend
+- ไฟล์นี้ทำงานเป็น layer ที่เชื่อม frontend กับ backend (API)
+- ใช้ async/await, try/catch เพื่อจัดการ async flow และ error
+- แยกการใช้งานตามหลัก CRUD: Create (add), Read (load), Update (edit), Delete (delete)
+- เรียนรู้การใช้ **Keycloak** เพื่อตรวจสอบ session และดึง Token
+- ใช้ **Fetch API + Bearer Token** ทำ REST CRUD กับ backend
+- ใช้ DOM method เช่น createElement(), appendChild(), classList
+- ใช้ dialog element เพื่อสร้าง popup แบบ component
+- ใช้ทักษะแยก UI (HTML/CSS) ออกจาก Logic (JS)
+
+**มีการใช้ AI เพื่อช่วยอธิบายและจัดระเบียบโค้ดให้อ่านง่ายขึ้น และให้เข้าใจ flow ได้ชัดเจน**
+
