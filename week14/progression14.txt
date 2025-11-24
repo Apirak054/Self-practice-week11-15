@@ -1,0 +1,120 @@
+///------- dateTime.js -------///
+///--- 1. สร้าง Date Object จากค่าเริ่มต้น (ไม่มี input parameter) ---//
+const today1 = new Date()
+console.log(today1) // 2025-11-19T02:30:53.178Z
+
+// new Date() : สร้าง Date object ของเวลาปัจจุบัน
+// console.log(today1) : แสดง Date Object (ISO String)
+
+///--- 2. สร้าง Date Object จาก milliseconds ---//
+const now = new Date(Date.now()) // Date.now() คืนค่า millisecond ปัจจุบัน
+console.log(now) // 2025-11-19T02:32:25.426Z
+
+// Date.now() : จำนวน milliseconds ตั้งแต่ 1970-01-01 UTC
+// new Date(ms) : สร้าง Date Object จาก millisecond
+
+///--- 3. สร้าง Date Object จาก String ---//
+const myDate1 = new Date("2025-05-02T17:15:35.100")
+console.log(myDate1) // 2025-05-02T10:15:35.100Z
+
+const myDate2 = new Date("2025-05-02T17:15:35.100z")
+console.log(myDate2) // 2025-05-02T17:15:35.100Z
+
+// new Date(string) : สร้าง Date จาก string format ISO
+// "Z" : แสดงว่าเป็น UTC
+// console.log() : แสดงผล Date object
+
+///--- 4. สร้าง Date Object จาก Year, Month, Day, hh, mm, ss, ms ---//
+const myDate3 = new Date(2025, 1, 2, 18, 15, 0, 150)
+console.log(myDate3) // 2025-02-02T11:15:00.150Z
+
+// monthIndex เริ่มจาก 0 → 0=Jan, 1=Feb ...
+// last parameter เป็น milliseconds
+
+//=================== Date Format ===================//
+//--- toString() ---//
+console.log(myDate3.toString()) // Sun Feb 02 2025 18:15:00 GMT+0700 (Indochina Time)
+
+// toString() : แสดงแบบ human readable (local timezone)
+
+//--- toISOString() ---//
+console.log(myDate3.toISOString()) // 2025-02-02T11:15:00.150Z
+
+// toISOString() : แสดงแบบ ISO 8601 (UTC)
+
+//--- toLocaleString() ---//
+console.log(myDate3.toLocaleString()) // 2/2/2025, 6:15:00 PM
+console.log(
+  myDate3.toLocaleString("th-TH", {
+    dateStyle: "short",
+    timeStyle: "short",
+    timeZone: "Asia/Bangkok",
+  })
+) // 2/2/68 18:15
+
+// toLocaleString(locale, options) : แสดงตาม locale และ timezone
+// dateStyle / timeStyle : รูปแบบการแสดงผล
+
+//--- Intl.DateTimeFormat() ---//
+const formatter = Intl.DateTimeFormat("en-US", {
+  dateStyle: "short",
+  timeStyle: "short",
+  timeZone: "Asia/Bangkok",
+})
+console.log(formatter.format(myDate3)) // 2/2/25, 6:15 PM
+
+// Intl.DateTimeFormat(locale, options) : formatter object
+// format(date) : แปลง date object เป็น string ตาม locale
+
+//--- resolvedOptions() ---//
+const userPreference = Intl.DateTimeFormat().resolvedOptions()
+console.log(userPreference.timeZone) // Asia/Bangkok
+console.log(userPreference.locale)   // en-US
+
+// resolvedOptions() : ดู timezone และ locale ของผู้ใช้
+
+//=================== เปรียบเทียบ Date ===================//
+const openTime = new Date("2025-11-19T12:00:00")
+const closeTime = new Date("2025-11-20T12:00:00")
+const aTime = new Date("2025-11-19T12:00:00")
+const myBookingTime = new Date("2025-11-20T11:59:00")
+
+//--- ใช้ >, <, >=, <= ---//
+if (openTime < closeTime) console.log("opentime comes before closetime")
+else console.log("opentime comes after closetime") // opentime comes before closetime
+
+// Date objects เปรียบเทียบโดยอัตโนมัติเป็น milliseconds
+
+//--- เปรียบเทียบ object โดยตรง (===) ---//
+if (openTime === openTime) console.log("both opentime is the same")
+else console.log("both opentime are different") // both opentime is the same
+
+if (openTime === aTime) console.log("opentime is the same as aTime")
+else console.log("opentime is not the same as aTime") // opentime is not the same as aTime
+
+// === เปรียบเทียบ reference ของ object ไม่ใช่เวลา
+
+//--- เปรียบเทียบเวลาจริง ---//
+if (openTime.getTime() === aTime.getTime())
+  console.log("both openTime and aTime are the same ") // both openTime and aTime are the same
+
+// getTime() : คืนค่า milliseconds ใช้เปรียบเทียบเวลาจริง
+
+//--- ตรวจสอบช่วงเวลา ---//
+if (myBookingTime >= openTime && myBookingTime <= closeTime) {
+  console.log("valid booking time")
+} else console.log("invalid booking time")
+
+// เช็คว่า myBookingTime อยู่ระหว่าง openTime และ closeTime
+// >=, <= ใช้เปรียบเทียบเวลาเป็น milliseconds
+
+//----------------------------------------------------------------------------------------------------------
+// สิ่งที่ฝึกฝนในไฟล์นี้ :
+// - สร้าง Date Object จากหลายวิธี: ไม่มี input, millisecond, string, components
+// - แปลง Date เป็น string หลายรูปแบบ: toString(), toISOString(), toLocaleString(), Intl.DateTimeFormat()
+// - ดู timezone และ locale ของผู้ใช้
+// - เปรียบเทียบ Date Object ด้วย >, <, >=, <=
+// - เปรียบเทียบเวลาจริงโดยใช้ getTime()
+// - เช็คช่วงเวลา (time period)
+// - เข้าใจความแตกต่างระหว่าง object reference และเวลาจริง
+// - ควบคุม timezone ให้ตรงกับความต้องการ
