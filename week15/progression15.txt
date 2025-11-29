@@ -1,0 +1,483 @@
+///------- reserve.js -------///
+----------------------------------------------------------------------------------------------------------
+//--- Import ฟังก์ชันที่ใช้ CRUD Declaration & Reservation ---//
+import { 
+    loadPlans, getIdDeclared, postDeclare, putDeclare, deleteDeclared,
+    getReservationPeriods, getCourseOfferings, getStudentReservations, createReservation, removeReservation
+} from "./reserveManagement.js";
+import { initKeycloak, signOut } from "./myLib/keycloak.js";
+
+    - loadPlans(): โหลดรายการ study plans
+    - getIdDeclared(): โหลดข้อมูลการ declare ของ student
+    - postDeclare(): Declare ใหม่
+    - putDeclare(): แก้ไข declared
+    - deleteDeclared(): ยกเลิก declared
+    - ฟังก์ชัน Reservation (Sprint 4): จอง, ลบการจอง, โหลด offerings, โหลดช่วงเวลา
+    - initKeycloak(): login ผ่าน Keycloak
+    - signOut(): logout
+
+//--- Global Variables ---//
+let studentName = ""
+let studentId = ""
+let plans = []
+let planId = ""
+
+// Sprint 4
+let isPeriodActive = false
+let cumulativeCreditLimit = 0
+let currentPeriodData = null
+
+    - ค่า global ใช้เก็บข้อมูล user และสถานะระบบ
+    - isPeriodActive: true/false ว่าช่วงเวลาจองเปิดไหม
+    - cumulativeCreditLimit: limit หน่วยกิตที่จองได้
+    - planId: เก็บ major ที่ declare แล้ว
+
+//--- DOM Loaded ---//
+document.addEventListener("DOMContentLoaded", async () => {
+    await login()
+    plans = await loadPlans()
+
+    const dropdownPlan = document.getElementById('plan-select')
+    plans.forEach(p => dropdownPlan.appendChild(optionEl(p)))
+
+    await initReservationSystem()
+    applyPeriodRestrictions()
+})
+
+    - เริ่มหลังโหลดหน้าเว็บครบ
+    - login(): ให้ user Auth ผ่าน Keycloak
+    - loadPlans(): โหลด major ทั้งหมด
+    - สร้าง <option> สำหรับ dropdown
+    - initReservationSystem(): เช็คเวลา reservation
+    - applyPeriodRestrictions(): ซ่อนปุ่มถ้าเวลาปิด
+
+//--- Utility: ปรับชื่อ Status ---//
+function normalizeStatus(status){
+    if (!status) return "";
+    if (status === "DECLARED") return "Declared";
+    if (status === "CANCELLED") return "Cancelled";
+    return status.charAt(0).toUpperCase() + status.slice(1).toLowerCase();
+}
+
+    - Normalize ตัวอักษร เช่น DECLARED → Declared
+
+//--- สร้าง <option> สำหรับ Plan Dropdown ---//
+function optionEl(plan) {
+    const option = document.createElement('option')
+    option.className = "ecors-plan-row"
+    option.textContent = `${plan.planCode} - ${plan.nameEng}`
+    option.value = plan.id
+    return option
+}
+
+    - แสดงเป็น “IT1 - Information Technology”
+    - value = id ของ plan
+
+//--- Handle เปลี่ยนค่าของ dropdown ---//
+function handleFormBtn(e){
+    const declareBtn = document.querySelector('.ecors-button-declare')
+    const changeBtn = document.querySelector('.ecors-button-change')
+
+    if (!isPeriodActive) {
+        if(declareBtn) declareBtn.disabled = true
+        if(changeBtn) changeBtn.disabled = true
+        return
+    }
+
+    // ปุ่ม declare
+    if(declareBtn){
+        declareBtn.disabled = !e.target.value
+    }
+
+    // ปุ่ม change
+    if(changeBtn){
+        if (!e.target.value) changeBtn.disabled = true
+        else changeBtn.disabled = e.target.value == planId
+    }
+}
+
+declareOtp.addEventListener('change', handleFormBtn)
+
+    - disable ปุ่มตาม logic ฟอร์ม
+    - ปิดการทำงานเมื่อช่วงเวลาไม่ active
+
+----------------------------------------------------------------------------------------------------------
+//--- แสดงผลสถานะ Declare ---//
+function declaredStatus(declared){
+    const declaredPlan = document.querySelector('.ecors-declared-plan')
+    const btnDeclare = document.querySelector('.ecors-button-declare')
+    const btnForm = document.querySelector('.btnForm')
+    const defaultSection = document.querySelector('.ecors-dropdown-plan')
+
+    // ยังไม่ declare
+    if (!declared) {
+        declaredPlan.textContent = "Not Declared"
+        if (btnForm) btnForm.style.display = 'none'
+        btnDeclare.style.display = isPeriodActive ? 'block' : 'none'
+        btnDeclare.disabled = true
+        return
+    }
+
+    // เคย declare แต่ถูก cancel
+    if (declared.status === "CANCELLED") {
+        declaredPlan.textContent = `Cancelled ${declared.planCode} - ${declared.nameEng}`
+        btnDeclare.style.display = 'block'
+        btnDeclare.disabled = true
+        if(btnForm) btnForm.remove()
+        return
+    }
+
+    // DECLARED ปกติ
+    if (declared.status === "DECLARED") {
+        declaredPlan.textContent = `Declared ${declared.planCode} - ${declared.nameEng}`
+        btnDeclare.style.display = 'none'
+
+        if(!btnForm) btnElManagement(declared)
+        defaultSection.value = planId
+        applyPeriodRestrictions()
+    }
+}
+
+    - ตัดสินใจว่า UI ควรแสดงอะไร
+    - ซ่อน/แสดงปุ่มตามสถานะ
+    - เพิ่มปุ่ม Change/Cancel ถ้าประกาศแล้ว
+
+----------------------------------------------------------------------------------------------------------
+//--- โหลดข้อมูล Declaration ของนักศึกษา ---//
+async function setDeclared(id){
+    const getDeclared = await getIdDeclared(id)
+
+    if (getDeclared && getDeclared.status !== "CANCELLED") {
+        planId = Number(getDeclared.planId)
+    } else {
+        planId = ''
+    }
+
+    if (!getDeclared) {
+        declaredStatus(null)
+        applyPeriodRestrictions()
+        return
+    }
+
+    const localTime = new Date(getDeclared.updatedAt).toLocaleString("en-GB")
+    getDeclared.updatedAt = localTime
+
+    const planFilter = plans.filter(p => p.id === Number(getDeclared.planId))
+    if(planFilter.length > 0){
+        getDeclared.planCode = planFilter[0].planCode
+        getDeclared.nameEng = planFilter[0].nameEng
+    }
+
+    declaredStatus(getDeclared)
+}
+
+    - ดึงข้อมูล declare จาก backend
+    - แปลงเวลาเป็น local time
+    - หา planCode/nameEng จาก id
+    - ส่งให้ declaredStatus() แสดงผล
+
+----------------------------------------------------------------------------------------------------------
+//--- สร้างปุ่ม Change + Cancel (หลัง DECLARED) ---//
+function btnElManagement(declared) {
+    const form = document.querySelector('.declare-form')
+    if(document.querySelector('.btnForm')) return
+
+    const btnForm = document.createElement('div')
+    btnForm.className = 'btnForm'
+
+    // Change
+    const btnChange = document.createElement('button')
+    btnChange.className = 'ecors-button-change'
+    btnChange.textContent = 'Change'
+    btnChange.type = "button"
+    btnChange.disabled = true
+    btnChange.addEventListener('click', handleChange)
+
+    // Cancel
+    const btnCancel = document.createElement('button')
+    btnCancel.className = 'ecors-button-cancel'
+    btnCancel.textContent = 'Cancel Declaration'
+    btnCancel.type = "button"
+    btnCancel.addEventListener('click', () => handleCancel(declared))
+
+    btnForm.appendChild(btnChange)
+    btnForm.appendChild(btnCancel)
+    form.appendChild(btnForm)
+}
+
+    - dynamically create ปุ่มเมื่อ declare แล้ว
+    - ปุ่ม change/cancel ผูก event handler
+
+----------------------------------------------------------------------------------------------------------
+//--- เปลี่ยน Declaration (PUT) ---//
+function handleChange(e){
+    e.preventDefault()
+    const test = new FormData(declareForm)
+    const selectValue = test.get("plan-id")
+    changeDeclared({planId: Number(selectValue)})
+}
+
+async function changeDeclared(planId){
+    const dialog = document.querySelector('.ecors-dialog')
+    const message = document.querySelector('.ecors-dialog-message')
+
+    try {
+        const data = await putDeclare(studentId, planId)
+        if(data){
+            message.textContent = 'Declaration updated.'
+            dialog.showModal()
+            await setDeclared(studentId)
+        }
+    } catch (error) {
+        message.textContent = error.message
+        dialog.showModal()
+    }
+}
+
+    - ส่งข้อมูลไปแก้ไข declaration
+    - ถ้า error เช่น 403 → โชว์ dialog
+
+----------------------------------------------------------------------------------------------------------
+//--- ยกเลิก Declaration (DELETE) ---//
+function handleCancel(declared){
+    const dialog = document.querySelector('.ecors-dialog')
+    const message = document.querySelector('.ecors-dialog-message')
+
+    message.textContent = `Are you sure you want to cancel?`
+    dialog.showModal()
+
+    // ปุ่ม Cancel Declaration จะเรียก cancelDeclared()
+}
+
+async function cancelDeclared(){
+    const dialog = document.querySelector('.ecors-dialog')
+    const message = document.querySelector('.ecors-dialog-message')
+
+    try {
+        const data = await deleteDeclared(studentId)
+        message.textContent = 'Declaration cancelled.'
+        dialog.showModal()
+
+        planId = ''
+        await setDeclared(studentId)
+    } catch (error) {
+        message.textContent = error.message
+        dialog.showModal()
+    }
+}
+
+    - เรียก DELETE ไปหลังบ้าน
+    - clear state
+    - refresh UI
+
+----------------------------------------------------------------------------------------------------------
+//--- Submit Declare ใหม่ (POST) ---//
+async function handleForm(e){
+    e.preventDefault()
+    const test = new FormData(declareForm)
+    const selectValue = test.get("plan-id")
+
+    const dialog = document.querySelector('.ecors-dialog')
+    const message = document.querySelector('.ecors-dialog-message')
+
+    try {
+        const data = await postDeclare(studentId, {planId: Number(selectValue)})
+        await setDeclared(studentId)
+    } catch (error) {
+        message.textContent = error.message
+        dialog.showModal()
+    }
+}
+
+    - ใช้ postDeclare() เพื่อสร้าง declare ใหม่
+    - ถ้า error เช่น declared ไปแล้ว → แสดง dialog
+
+----------------------------------------------------------------------------------------------------------
+//--- Keycloak Login ---//
+async function login(){
+    const user = await initKeycloak()
+    if(user){
+        studentName = user.name
+        studentId = user.preferred_username
+
+        document.querySelector(".ecors-fullname").textContent += studentName
+        setDeclared(studentId)
+        createSignOut()
+    }
+}
+
+function logout(){
+    signOut()
+    studentName = ""
+    studentId = ""
+}
+
+function createSignOut(){
+    const profile = document.getElementById("profile")
+    if(document.querySelector('.ecors-button-signout')) return
+
+    const btn = document.createElement("button")
+    btn.className = "ecors-button-signout"
+    btn.textContent = "Sign Out"
+    btn.addEventListener("click", logout)
+    profile.append(btn)
+}
+
+----------------------------------------------------------------------------------------------------------
+==========================================
+ SPRINT 4 NEW LOGIC
+==========================================
+
+//--- Init Reservation System ---//
+async function initReservationSystem() {
+    const periodData = await getReservationPeriods()
+    const periodSection = document.querySelector('.reservation-period-section')
+
+    if(periodData.currentPeriod){
+        isPeriodActive = true
+        cumulativeCreditLimit = periodData.currentPeriod.cumulativeCreditLimit
+
+        const msg = document.createElement('div')
+        msg.textContent = "Reservation is open"
+        msg.style.color = "green"
+        msg.dataset.cy = "current-message"
+        periodSection.appendChild(msg)
+    } else {
+        isPeriodActive = false
+        const msg = document.createElement('div')
+        msg.textContent = "Reservation is closed"
+        msg.style.color = "red"
+        msg.dataset.cy = "current-message"
+        periodSection.appendChild(msg)
+    }
+
+    if(periodData.nextPeriod){
+        const msg = document.createElement('div')
+        msg.textContent = "Next reservation period:"
+        msg.dataset.cy = "next-message"
+        periodSection.appendChild(msg)
+    }
+}
+
+    - เช็คว่า period ปัจจุบันเปิดหรือปิด
+    - ถ้าเปิด → isPeriodActive = true
+
+//--- ซ่อนปุ่มทั้งหมดถ้าเวลาปิด ---//
+function applyPeriodRestrictions(){
+    if(!isPeriodActive){
+        const btns = document.querySelectorAll('.ecors-button-declare, .ecors-button-change, .ecors-button-cancel, .btnForm')
+        btns.forEach(btn => btn.style.display = "none")
+    }
+}
+
+    - Cypress ยังหา element ได้ แต่ปิดการคลิก
+    - ทำตาม Requirement Sprint 4
+
+//--- Load Reservation Data ---//
+async function loadReservationData(){
+    if (!isPeriodActive) return
+
+    const [offeringsData, myResData] = await Promise.all([
+        getCourseOfferings(),
+        getStudentReservations(studentId)
+    ])
+
+    renderReservations(myResData)
+    renderCourseOfferings(offeringsData.courseOfferings, myResData)
+}
+
+    - โหลดข้อมูลการจอง + รายวิชาที่เปิดให้จอง
+    - แสดงในสองส่วน: “Your reservations” และ “Offerings list”
+
+//--- Render รายการที่จองแล้ว ---//
+function renderReservations(data){
+    const list = document.getElementById('your-reservations-list')
+    list.innerHTML = ''
+
+    if (data.reservedCourses.length === 0){
+        list.innerHTML = '<p>No reserved courses yet.</p>'
+        return
+    }
+
+    data.reservedCourses
+        .sort((a,b)=> a.courseCode.localeCompare(b.courseCode))
+        .forEach(course => {
+            const row = document.createElement('div')
+            row.textContent = `${course.courseCode} ${course.courseTitle}`
+
+            const removeBtn = document.createElement('button')
+            removeBtn.textContent = 'Remove'
+            removeBtn.onclick = () => handleRemoveClick(course)
+
+            row.appendChild(removeBtn)
+            list.appendChild(row)
+        })
+}
+
+    - แสดงรายการ courses ที่นักศึกษาจองแล้ว
+    - ปุ่ม Remove เรียก handleRemoveClick()
+
+//--- Render รายวิชา Offering ทั้งหมด ---//
+function renderCourseOfferings(offerings, myReservations){
+    const list = document.getElementById('course-offerings-list')
+    list.innerHTML = ''
+
+    const reservedIds = myReservations.reservedCourses.map(c=> c.courseOfferingId)
+    const currentCredits = myReservations.reservedCredits
+
+    offerings.forEach(course => {
+        const div = document.createElement('div')
+
+        const reserveBtn = document.createElement('button')
+        reserveBtn.textContent = reservedIds.includes(course.id)
+            ? "Reserved"
+            : "Reserve"
+
+        if (reservedIds.includes(course.id)) reserveBtn.disabled = true
+        if ((currentCredits + course.courseCredits) > cumulativeCreditLimit){
+            reserveBtn.disabled = true
+        }
+
+        reserveBtn.onclick = () => handleReserveClick(course.id)
+
+        div.appendChild(reserveBtn)
+        list.appendChild(div)
+    })
+}
+
+    - ปุ่ม Reserve จะ disable ถ้า:
+        • จองไปแล้ว
+        • เกิน limit หน่วยกิต
+
+----------------------------------------------------------------------------------------------------------
+//--- Reserve วิชาใหม่ ---//
+async function handleReserveClick(offeringId){
+    const dialog = document.querySelector('.ecors-dialog')
+    const message = document.querySelector('.ecors-dialog-message')
+
+    try {
+        await createReservation(studentId, offeringId)
+        await loadReservationData()
+    } catch (error) {
+        message.textContent = error.message
+        dialog.showModal()
+    }
+}
+
+    - ถ้า Create ล้มเหลว เช่น 409 หรือ 403 → โชว์ dialog
+
+//--- Confirm Remove Reservation ---//
+function handleRemoveClick(course){
+    const dialog = document.querySelector('.ecors-dialog')
+    const message = document.querySelector('.ecors-dialog-message')
+
+    message.textContent = `Remove ${course.courseCode}?`
+    dialog.showModal()
+}
+
+----------------------------------------------------------------------------------------------------------
+สิ่งที่ฝึกในอาทิตย์นี้  
+- สรุปฟังก์ชันทุกหน้าที่  
+- แยกหัวข้อให้อ่านง่ายตาม structure เดียวกับตัวอย่าง DOM  
+- ทำความเข้าใจระบบ Declaration + Reservation ในโปรเจกต์จริง  
+- ใช้ AI เพื่อช่วยอธิบายและจัด format ให้ชัดเจนสำหรับอ่านทบทวนในอนาคต  

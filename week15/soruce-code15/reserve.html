@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Course Reservation</title>
+    <link rel="stylesheet" href="src/css/style.css">
+    <link rel="stylesheet" href="src/css/reserve.css">
+</head>
+
+<body>
+    <div class="header">
+        <div>Study Plan Declaration and Course Reservation </div>
+        <div id="profile">
+            <p class="ecors-fullname">Welcome, </p>
+        </div>
+    </div>
+
+    <div class="reservation-period-section"></div>
+
+    <div class="declared-plan">
+        Declaration Status: <span class="ecors-declared-plan">Not Declared</span>
+    </div>
+
+    <div class="content">
+
+        <div id="declaration-section">
+            <h3>Declare Your Major</h3>
+
+            <form class="declare-form">
+                <label for="plan-select">Select Major:</label>
+
+                <select name="plan-id" id="plan-select" class="ecors-dropdown-plan">
+                    <option value="">-- Select Major --</option>
+                </select>
+
+                <div class="btnForm">
+                    <button class="ecors-button-declare" disabled type="submit">Declare</button>
+                </div>
+            </form>
+        </div>
+
+        <div id="reservation-section" style="display: none;">
+            <h3>Your Reservations</h3>
+
+            <div id="your-reservations-list">
+                <p>No reserved courses yet.</p>
+            </div>
+
+            <div class="credit-summary">
+                Credits Reserved:
+                <span id="total-credits" data-cy="total-reserved-credits">0</span>/
+                <span id="credit-limit" data-cy="total-limit-credits">0</span>
+            </div>
+        </div>
+
+    </div> 
+
+    <script src="src/js/reserve.js" type="module" ></script>
+
+</body>
+</html>
